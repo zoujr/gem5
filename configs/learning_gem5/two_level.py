@@ -71,7 +71,11 @@ system.mem_ctrl.port = system.membus.mem_side_ports
 
 # 指定一个可执行文件
 process = Process()
-process.cmd = ['tests/test-progs/hello/bin/riscv/linux/hello']
+
+if m5.defines.buildEnv['TARGET_ISA'] == 'x86':
+    process.cmd = ['tests/test-progs/hello/bin/x86/linux/hello']
+else:
+    process.cmd = ['tests/test-progs/hello/bin/riscv/linux/hello']
 system.cpu.workload = process
 system.cpu.createThreads()
 

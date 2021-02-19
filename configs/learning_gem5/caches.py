@@ -20,7 +20,7 @@ class L1Cache(Cache):
         pass
 
 class L1ICache(L1Cache):
-        size = '16kB'
+    size = '16kB'
 
     def connectCPU(self, cpu):
         self.cpu_side = cpu.icache_port
