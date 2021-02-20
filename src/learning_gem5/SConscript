@@ -4,4 +4,8 @@ SimObject('HelloObject.py')
 Source('hello_object.cc')
 Source('goodbye_object.cc')
 
+SimObject('SimpleMemobj.py')
+Source('simple_memobj.cc')
+
 DebugFlag('Hello')
+DebugFlag('SimpleMemobj', "For Learning gem5 part2.")
