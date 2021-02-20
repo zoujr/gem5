@@ -8,7 +8,7 @@
 class SimpleMemobj : public SimObject
 {
     private:
-        class CPUSidePort : public SlavePort
+        class CPUSidePort : public ResponsePort
         {
             private:
                 SimpleMemobj *owner;
@@ -17,7 +17,7 @@ class SimpleMemobj : public SimObject
 
             public:
                 CPUSidePort(const std::string& name, SimpleMemobj *owner) :
-                    SlavePort(name, owner), owner(owner),
+                    ResponsePort(name, owner), owner(owner),
                     needRetry(false), blockedPacket(nullptr)
                 { }
 
@@ -36,7 +36,7 @@ class SimpleMemobj : public SimObject
 
         };
 
-        class MemSidePort : public MasterPort
+        class MemSidePort : public RequestPort
         {
             private:
                 SimpleMemobj * owner;
@@ -44,7 +44,7 @@ class SimpleMemobj : public SimObject
 
             public:
                 MemSidePort(const std::string& name, SimpleMemobj *owner) :
-                    MasterPort(name, owner), owner(owner),
+                    RequestPort(name, owner), owner(owner),
                     blockedPacket(nullptr)
                 {  }
 
