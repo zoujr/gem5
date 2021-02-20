@@ -3,14 +3,16 @@
 #include "base/trace.hh"
 #include "debug/Hello.hh"
 
-HelloObject:: HelloObject(HelloObjectParams * params) :
+HelloObject::HelloObject(HelloObjectParams * params) :
     SimObject(params),
     event([this]{processEvent();}, name()),
+    goodbye(params->goodbye_object),
     latency(params->time_to_wait),
     timesLeft(params->number_of_fires),
     myName(params->name)
 {
     DPRINTF(Hello, "Created the hello object\n");
+    panic_if(!goodbye, "HelloObject must have a non-null GoodbyeObject");
 }
 
 HelloObject*
@@ -27,6 +29,8 @@ HelloObject::processEvent()
 
     if (timesLeft <= 0) {
         DPRINTF(Hello, "Done firing!\n");
+
+        goodbye->sayGoodbye(myName);
     } else {
         schedule(event, curTick() + latency);
     }
