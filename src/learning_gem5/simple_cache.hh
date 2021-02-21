@@ -22,7 +22,7 @@ class SimpleCache : public ClockedObject
             public:
                 CPUSidePort(const std::string& name, int id,
                     SimpleCache *owner) :
-                    ResponsePort(name, owner), owner(owner),
+                    ResponsePort(name, owner), id(id), owner(owner),
                     needRetry(false), blockedPacket(nullptr)
                 { }
 
@@ -44,7 +44,7 @@ class SimpleCache : public ClockedObject
         class MemSidePort : public RequestPort
         {
             private:
-                SimpleCache * owner;
+                SimpleCache *owner;
                 PacketPtr blockedPacket;
 
             public:
@@ -72,7 +72,7 @@ class SimpleCache : public ClockedObject
 
         AddrRangeList getAddrRanges() const;
 
-        void sendRangeChange();
+        void sendRangeChange() const;
 
         const Cycles latency;
 
@@ -107,7 +107,7 @@ class SimpleCache : public ClockedObject
     public:
         SimpleCache(SimpleCacheParams *params);
 
-        Port &getPort(const std::string& if_name,
+        Port &getPort(const std::string &if_name,
             PortID idx=InvalidPortID) override;
 };
 

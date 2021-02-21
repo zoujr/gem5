@@ -30,6 +30,18 @@ SimpleCache::getPort(const std::string& if_name, PortID idx)
     }
 }
 
+void
+SimpleCache::CPUSidePort::sendPacket(PacketPtr pkt)
+{
+    panic_if(blockedPacket != nullptr, "Should never try to send if blocked!");
+
+    DPRINTF(SimpleCache, "Sending %s to CPU\n", pkt->print());
+    if (!sendTimingResp(pkt)) {
+        DPRINTF(SimpleCache, "failed!\n");
+        blockedPacket = pkt;
+    }
+}
+
 AddrRangeList
 SimpleCache::CPUSidePort::getAddrRanges() const
 {
@@ -37,30 +49,20 @@ SimpleCache::CPUSidePort::getAddrRanges() const
 }
 
 void
+SimpleCache::CPUSidePort::trySendRetry()
+{
+    if (needRetry && blockedPacket == nullptr) {
+        needRetry = false;
+        DPRINTF(SimpleCache, "Sending retry req for %d\n", id);
+        sendRetryReq();
+    }
+}
+
+
+void
 SimpleCache::CPUSidePort::recvFunctional(PacketPtr pkt)
 {
     return owner->handleFunctional(pkt);
-}
-
-AddrRangeList
-SimpleCache::getAddrRanges() const
-{
-    DPRINTF(SimpleCache, "Sending new ranges\n");
-    return memPort.getAddrRanges();
-}
-
-void
-SimpleCache::MemSidePort::recvRangeChange()
-{
-    owner->sendRangeChange();
-}
-
-void
-SimpleCache::sendRangeChange()
-{
-    for (auto& port : cpuPorts) {
-        port.sendRangeChange();
-    }
 }
 
 bool
@@ -84,6 +86,53 @@ SimpleCache::CPUSidePort::recvTimingReq(PacketPtr pkt)
     }
 }
 
+void
+SimpleCache::CPUSidePort::recvRespRetry()
+{
+    assert(blockedPacket != nullptr);
+
+    PacketPtr pkt = blockedPacket;
+    blockedPacket = nullptr;
+
+    DPRINTF(SimpleCache, "Retrying response pkt %s\n", pkt->print());
+
+    sendPacket(pkt);
+
+    trySendRetry();
+}
+
+void
+SimpleCache::MemSidePort::sendPacket(PacketPtr pkt)
+{
+    panic_if(blockedPacket != nullptr, "Should never try to send if blocked!");
+    if (!sendTimingReq(pkt)) {
+        blockedPacket = pkt;
+    }
+}
+
+bool
+SimpleCache::MemSidePort::recvTimingResp(PacketPtr pkt)
+{
+    return owner->handleResponse(pkt);
+}
+
+void
+SimpleCache::MemSidePort::recvReqRetry()
+{
+    assert(blockedPacket != nullptr);
+
+    PacketPtr pkt = blockedPacket;
+    blockedPacket = nullptr;
+
+    sendPacket(pkt);
+}
+
+void
+SimpleCache::MemSidePort::recvRangeChange()
+{
+    owner->sendRangeChange();
+}
+
 bool
 SimpleCache::handleRequest(PacketPtr pkt, int port_id)
 {
@@ -103,32 +152,6 @@ SimpleCache::handleRequest(PacketPtr pkt, int port_id)
         clockEdge(latency));
 
     return true;
-}
-
-void
-SimpleCache::MemSidePort::sendPacket(PacketPtr pkt)
-{
-    panic_if(blockedPacket != nullptr, "Should never try to send if blocked!");
-    if (!sendTimingReq(pkt)) {
-        blockedPacket = pkt;
-    }
-}
-
-void
-SimpleCache::MemSidePort::recvReqRetry()
-{
-    assert(blockedPacket != nullptr);
-
-    PacketPtr pkt = blockedPacket;
-    blockedPacket = nullptr;
-
-    sendPacket(pkt);
-}
-
-bool
-SimpleCache::MemSidePort::recvTimingResp(PacketPtr pkt)
-{
-    return owner->handleResponse(pkt);
 }
 
 bool
@@ -155,43 +178,6 @@ SimpleCache::handleResponse(PacketPtr pkt)
     sendResponse(pkt);
 
     return true;
-}
-
-void
-SimpleCache::CPUSidePort::sendPacket(PacketPtr pkt)
-{
-    panic_if(blockedPacket != nullptr, "Should never try to send if blocked!");
-
-    DPRINTF(SimpleCache, "Sending %s to CPU\n", pkt->print());
-    if (!sendTimingResp(pkt)) {
-        DPRINTF(SimpleCache, "failed!\n");
-        blockedPacket = pkt;
-    }
-}
-
-void
-SimpleCache::CPUSidePort::recvRespRetry()
-{
-    assert(blockedPacket != nullptr);
-
-    PacketPtr pkt = blockedPacket;
-    blockedPacket = nullptr;
-
-    DPRINTF(SimpleCache, "Retrying response pkt %s\n", pkt->print());
-
-    sendPacket(pkt);
-
-    trySendRetry();
-}
-
-void
-SimpleCache::CPUSidePort::trySendRetry()
-{
-    if (needRetry && blockedPacket == nullptr) {
-        needRetry = false;
-        DPRINTF(SimpleCache, "Sending retry req for %d\n", id);
-        sendRetryReq();
-    }
 }
 
 void
@@ -341,6 +327,23 @@ SimpleCache::insert(PacketPtr pkt)
 
     // Write the data into the cache
     pkt->writeDataToBlock(data, blockSize);
+}
+
+AddrRangeList
+SimpleCache::getAddrRanges() const
+{
+    DPRINTF(SimpleCache, "Sending new ranges\n");
+    return memPort.getAddrRanges();
+}
+
+
+
+void
+SimpleCache::sendRangeChange() const
+{
+    for (auto& port : cpuPorts) {
+        port.sendRangeChange();
+    }
 }
 
 SimpleCache::SimpleCacheStats::SimpleCacheStats(Stats::Group *parent)
